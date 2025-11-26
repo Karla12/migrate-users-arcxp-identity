@@ -29,7 +29,7 @@ const processFile = async (file, headings) => {
     const results = [];
 
     const mapValuesAditional = ({ header, index, value }) => {
-      let valueColumn = value.trim();
+      let valueColumn = value ? value.trim() : "";
 
       const validationTypeEmpty =
         typeof valueColumn !== "string" ||
@@ -332,95 +332,74 @@ const processFile = async (file, headings) => {
 };
 
 const uploadCsvFileToServer = async (file) => {
-  fs.access(directoryUploads, fs.constants.F_OK, (err) => {
-    if (err) {
-      fs.mkdir(directoryUploads, { recursive: true }, (err) => {
-        if (err) {
-          console.error("Error creating directory CSV:", err);
-        } else {
-          console.log("CSV directory successfully created.");
-        }
-      });
-    }
-  });
-
-  fs.access(directoryLogs, fs.constants.F_OK, (err) => {
-    if (err) {
-      fs.mkdir(directoryLogs, { recursive: true }, (err) => {
-        if (err) {
-          console.error("Error creating directory LOGS:", err);
-        } else {
-          console.log("LOGS directory successfully created.");
-        }
-      });
-    }
-  });
+  await fs.promises
+    .mkdir(directoryUploads, { recursive: true })
+    .catch(() => {});
+  await fs.promises.mkdir(directoryLogs, { recursive: true }).catch(() => {});
 
   const csvFile = file;
-  const fileName = csvFile.name.split(".");
-  const currentDate = new Date();
-  const uploadPath =
-    directoryUploads +
-    "/" +
-    fileName[0] +
-    "_" +
-    currentDate.toISOString() +
-    "." +
-    fileName[1];
-  await csvFile.mv(uploadPath);
+  const ext = path.extname(csvFile.name) || ".csv";
+  const base = path.basename(csvFile.name, ext).replace(/[^a-zA-Z0-9-_]/g, "_");
+  const safeDate = new Date().toISOString().replace(/[:.]/g, "-");
+  const uploadPath = path.join(directoryUploads, `${base}_${safeDate}${ext}`);
+  await new Promise((resolve, reject) => {
+    csvFile.mv(uploadPath, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
   return uploadPath;
 };
 
-const saveDataLog = (data) => {
-  let errorRequests = [];
-  let successRequests = [];
+const saveDataLog = async (data) => {
+  try {
+    let errorRequests = [];
+    let successRequests = [];
 
-  data.forEach((item) =>
-    item.records.forEach((element) => {
-      if (element.success === false && element.errorMessage !== "")
-        errorRequests.push(element);
+    (data || []).forEach((item) => {
+      const records = item.ok ? item.data : [];
+      records.forEach((element) => {
+        if (element.success === false && element.errorMessage !== "")
+          errorRequests.push(element);
 
-      if (element.success === true && element.errorMessage == "")
-        successRequests.push(element);
-    })
-  );
-  console.log(
-    "Total error requests:",
-    errorRequests.length,
-    "Total success requests:",
-    successRequests.length
-  );
-
-  const currentDate = new Date().toISOString();
-  if (errorRequests.length > 0) {
-    const objectResult = JSON.stringify({ records: errorRequests });
-    const logPath = path.join(
-      directoryLogs,
-      "error_logs_request" + currentDate + ".json"
-    );
-    fs.writeFile(logPath, objectResult, (err) => {
-      if (err) throw err;
-      console.log(
-        "error_logs_request" +
-          currentDate +
-          ".json created successfully with content!"
-      );
+        if (element.success === true && element.errorMessage == "")
+          successRequests.push(element);
+      });
     });
-  }
-  if (successRequests.length > 0) {
-    const objectResult = JSON.stringify({ records: successRequests });
-    const logPath = path.join(
-      directoryLogs,
-      "success_logs_request" + currentDate + ".json"
+
+    console.log(
+      "Total error requests:",
+      errorRequests.length,
+      "Total success requests:",
+      successRequests.length
     );
-    fs.writeFileSync(logPath, objectResult, (err) => {
-      if (err) throw err;
-      console.log(
-        "success_logs_request" +
-          currentDate +
-          ".json created successfully with content!"
+
+    const currentDate = new Date().toISOString().replace(/[:.]/g, "-");
+    if (errorRequests.length > 0) {
+      const objectResult = JSON.stringify({ records: errorRequests }, null, 2);
+      const logPath = path.join(
+        directoryLogs,
+        `error_logs_request_${currentDate}.json`
       );
-    });
+      await fs.promises.writeFile(logPath, objectResult);
+      console.log("Success log saved at:", logPath);
+    }
+
+    if (successRequests.length > 0) {
+      const objectResult = JSON.stringify(
+        { records: successRequests },
+        null,
+        2
+      );
+      const logPath = path.join(
+        directoryLogs,
+        `success_logs_request_${currentDate}.json`
+      );
+      await fs.promises.writeFile(logPath, objectResult);
+      console.log("Success log saved at:", logPath);
+    }
+  } catch (error) {
+    console.error("Error saving data logs:", error);
   }
 };
 
@@ -432,9 +411,16 @@ const userMigrationArcIdentityController = async (req) => {
     console.log("File processing failed due to validation errors.");
     return [];
   }
-  const responseData = await processToSendDataToArc(dataParsed);
+
+  let responseData = [];
+  try {
+    responseData = await processToSendDataToArc(dataParsed);
+  } catch (error) {
+    console.error("Error during user migration process:", error);
+  }
+
   console.log("User migration process completed.", responseData.length);
-  saveDataLog(responseData);
+  await saveDataLog(responseData).catch(() => {});
   console.log("Data logs saved.");
 };
 

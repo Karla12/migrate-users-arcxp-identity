@@ -18,24 +18,21 @@ const requestToArcXP = async (data) => {
         },
       }
     );
+    const records = response?.data?.records ?? [];
     console.log(
       "Response from Arc XP:",
       response.data.records.length,
       "records."
     );
     console.log("Ending POST request to Arc XP at: ", new Date().toISOString());
-    return response && response.data ? response.data : [];
+    return { ok: true, data: records };
   } catch (error) {
-    console.error("Error during POST request:", error);
+    console.error("Error during POST request:", error.message || error);
     if (error.response) {
       console.error("Error data:", error.response.data);
       console.error("Error status:", error.response.status);
-      console.error("Error headers:", error.response.headers);
-    } else if (error.request) {
-      console.error("No response received:", error.request);
-    } else {
-      console.error("Request setup error:", error.message);
     }
+    return { ok: false, error: error.message || "Unknown error", records: [] };
   }
 };
 
@@ -43,16 +40,19 @@ const sliceAndProcessDataRowsARCXP = (data) => {
   console.log("Slicing data into chunks for Arc XP processing");
   const slicedData = [];
   const maxRows = parseInt(process.env.MAX_ROWS_PER_REQUEST) || 100;
-  for (let i = 0; i <= data.length; i += maxRows) {
+  for (let i = 0; i < data.length; i += maxRows) {
     const chunk = data.slice(i, i + maxRows);
-    slicedData.push(chunk);
+    if (chunk.length > 0) slicedData.push(chunk);
   }
   return slicedData;
 };
 
 export const processToSendDataToArc = async (data) => {
-  console.log("Starting to process data to send to Arc...", data.length);
-  const slicedData = sliceAndProcessDataRowsARCXP(data);
+  console.log(
+    "Starting to process data to send to Arc...",
+    Array.isArray(data.length) ? data.length : 0
+  );
+  const slicedData = sliceAndProcessDataRowsARCXP(data || []);
   console.log("Sliced data into", slicedData.length, "chunks.");
   const response = await Promise.all(
     slicedData.map((dataChunk) => requestToArcXP({ records: dataChunk }))

@@ -1,6 +1,6 @@
 import express from "express";
 import fileUpload from "express-fileupload";
-import userMigrationArcIdentityService from "./userMigrationArcidentity.service.js";
+import userMigrationArcIdentityService from "./userMigrationArcIdentity.service.js";
 
 const app = express();
 app.use(fileUpload());
