@@ -17,12 +17,12 @@ export const mapHeaders = ({ header }) => {
 export const fotmatJsonResult = (data) => {
   const dataResult = {};
 
-  if (data.userName && data.credentials) {
+  if (data.userName && data.grantType) {
     dataResult.identities = [
       {
         userName: data.userName,
-        credentials: data.credentials,
-        grantType: data.grantType || "",
+        credentials: data.credentials || "",
+        grantType: data.grantType,
         lastLoginDate: data.lastLoginDate || "",
       },
     ];

@@ -9,7 +9,7 @@ const requestToArcXP = async (data) => {
       new Date().toISOString()
     );
     const response = await axios.post(
-      `${process.env.URL_HERALDOCO_ARC_XP}/identity/api/v1/migrate`,
+      `${process.env.URL_ARC_XP}/identity/api/v1/migrate`,
       data,
       {
         headers: {
