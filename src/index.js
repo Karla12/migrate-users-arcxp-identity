@@ -1,11 +1,12 @@
 import express from "express";
 import fileUpload from "express-fileupload";
 import userMigrationArcIdentityService from "./userMigrationArcIdentity.service.js";
+import authenticateToken from "./middlewareAutorization.js";
 
 const app = express();
 app.use(fileUpload());
 
-app.post("/csvprocess", (req, res) => {
+app.post("/csvprocess", authenticateToken, (req, res) => {
   if (!req.files || Object.keys(req.files).length === 0) {
     return res.status(400).send({ error: "No files were uploaded." });
   }
@@ -22,7 +23,7 @@ app.post("/csvprocess", (req, res) => {
 
   userMigrationArcIdentityService(req);
 
-  return res.send({
+  return res.status(200).send({
     message:
       "This process runs in the background and will take a few minutes to complete.",
   });
