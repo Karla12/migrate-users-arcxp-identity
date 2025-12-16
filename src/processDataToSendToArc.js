@@ -2,42 +2,71 @@ import dotenv from "dotenv";
 dotenv.config({ path: process.cwd() + "/.env" });
 import axios from "axios";
 
-const requestToArcXP = async (data) => {
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const requestToArcXP = async (data, logger) => {
   try {
-    console.log(
-      "Sending POST request to Arc XP at: ",
-      new Date().toISOString()
-    );
-    const response = await axios.post(
-      `${process.env.URL_ARC_XP}/identity/api/v1/migrate`,
-      data,
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.AUTH_TOKEN_ARC_XP}`,
-        },
+    logger.info({
+      message: "Sending POST request to Arc XP",
+    });
+    let retries = 0;
+    const maxRetries = parseInt(process.env.MAX_RETRIES) || 6;
+    const retryDelay = parseInt(process.env.RETRY_DELAY_MS) || 10000;
+
+    while (retries < maxRetries) {
+      const response = await axios.post(
+        `${process.env.URL_ARC_XP}/identity/api/v1/migrate`,
+        data,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.AUTH_TOKEN_ARC_XP}`,
+          },
+        }
+      );
+      if (response.status === 429) {
+        retries++;
+
+        logger.info({
+          message: `Received 429 Too Many Requests. Retry ${retries}/${maxRetries}`,
+          type: "warning",
+        });
+        if (retries > maxRetries) {
+          logger.error({
+            message: `Exceeded maximum retries (${maxRetries}) for 429 errors.`,
+          });
+        }
+        await sleep(retryDelay); // Wait 10 seconds for 429 errors
+        continue;
       }
-    );
-    const records = response?.data?.records ?? [];
-    console.log(
-      "Response from Arc XP:",
-      response.data.records.length,
-      "records."
-    );
-    console.log("Ending POST request to Arc XP at: ", new Date().toISOString());
-    return { ok: true, data: records };
+      const records = response?.data?.records ?? [];
+      logger.info({
+        message: `POST request to Arc XP successful. Records processed: ${records.length}`,
+      });
+      // Wait 0.9375 seconds before allowing the next request
+      await sleep(938);
+      return { ok: true, data: records };
+    }
   } catch (error) {
-    console.error("Error during POST request:", error.message || error);
+    logger.error({
+      message: `Error during POST request to Arc XP: ${error.message}`,
+    });
     if (error.response) {
-      console.error("Error data:", error.response.data);
-      console.error("Error status:", error.response.status);
+      logger.error({
+        message: `Error data: ${JSON.stringify(error.response.data)}`,
+      });
+      logger.error({
+        message: `Error status: ${error.response.status}`,
+      });
     }
     return { ok: false, error: error.message || "Unknown error", records: [] };
   }
 };
 
-const sliceAndProcessDataRowsARCXP = (data) => {
-  console.log("Slicing data into chunks for Arc XP processing");
+const sliceAndProcessDataRowsARCXP = (data, logger) => {
+  logger.info({
+    message: "Slicing data into chunks for Arc XP processing",
+  });
   const slicedData = [];
   const maxRows = parseInt(process.env.MAX_ROWS_PER_REQUEST) || 100;
   for (let i = 0; i < data.length; i += maxRows) {
@@ -47,16 +76,24 @@ const sliceAndProcessDataRowsARCXP = (data) => {
   return slicedData;
 };
 
-export const processToSendDataToArc = async (data) => {
-  console.log(
-    "Starting to process data to send to Arc...",
-    Array.isArray(data.length) ? data.length : 0
-  );
-  const slicedData = sliceAndProcessDataRowsARCXP(data || []);
-  console.log("Sliced data into", slicedData.length, "chunks.");
+export const processToSendDataToArc = async (data, logger) => {
+  logger.info({
+    message: "Starting to process data to send to Arc...",
+    dataLength: Array.isArray(data.length) ? data.length : 0,
+  });
+  const slicedData = sliceAndProcessDataRowsARCXP(data || [], logger);
+  logger.info({
+    message: "Data sliced into chunks for Arc processing.",
+    chunks: slicedData.length,
+  });
   const response = await Promise.all(
-    slicedData.map((dataChunk) => requestToArcXP({ records: dataChunk }))
+    slicedData.map((dataChunk) =>
+      requestToArcXP({ records: dataChunk }, logger)
+    )
   );
-  console.log("All data chunks processed and sent to Arc.", response.length);
+  logger.info({
+    message: "All data chunks processed and sent to Arc.",
+    responseLength: response.length,
+  });
   return response;
 };
