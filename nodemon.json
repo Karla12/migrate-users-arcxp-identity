@@ -1,6 +1,7 @@
 {
     "ignore": [
         "csvs/*",
-        "logs/*"
+        "logs_requests/*",
+        "logs/*.log"
     ]
 }
