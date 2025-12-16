@@ -1,4 +1,4 @@
-import userMigrationArcIdentityController from "./userMigrationArcidentity.controller.js";
+import userMigrationArcIdentityController from "./userMigrationArcIdentity.controller.js";
 
 const userMigrationArcIdentityService = async (req) => {
   userMigrationArcIdentityController(req);

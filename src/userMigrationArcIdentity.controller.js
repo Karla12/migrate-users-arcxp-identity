@@ -2,6 +2,7 @@ import fs from "fs";
 import csv from "csv-parser";
 import validator from "validator";
 import path from "path";
+import { createLogger, transports, format } from "winston";
 import {
   FULL_HEADERS,
   DEFAULT_HEADERS,
@@ -12,7 +13,10 @@ import {
 import { fotmatJsonResult, mapHeaders } from "./helpers.js";
 import { processToSendDataToArc } from "./processDataToSendToArc.js";
 
+const currentDate = new Date().toISOString().replace(/[:.]/g, "-");
+
 const directoryUploads = process.cwd() + "/csvs";
+const directoryLogRequest = process.cwd() + "/logs_requests";
 const directoryLogs = process.cwd() + "/logs";
 
 const errorText = (header, index, valueColumn) => {
@@ -21,9 +25,11 @@ const errorText = (header, index, valueColumn) => {
   } value received: "${valueColumn}" \n`;
 };
 
-const processFile = async (file, headings) => {
+const processFile = async (file, headings, logger) => {
   let parsingError = "";
-  console.log("File processing and validation has begun.");
+  logger.info({
+    message: "File processing and validation has begun.",
+  });
 
   const promise = new Promise((resolve, reject) => {
     const results = [];
@@ -302,7 +308,7 @@ const processFile = async (file, headings) => {
     });
     parser.on("error", (err) => {
       parsingError = err;
-      console.error("Parsing error:", err.message);
+      logger.error({ message: `Parsing error: ${err.message}` });
       parser.end();
     });
     parser.on("end", () => {
@@ -317,23 +323,32 @@ const processFile = async (file, headings) => {
   const dataParsed = await promise;
 
   if (typeof dataParsed === "string" && dataParsed !== "") {
-    const logPath = path.join(directoryLogs, "csv_error_logs.txt");
+    const logPath = path.join(directoryLogs, "csv_error_logs.log");
     fs.writeFile(logPath, dataParsed, (err) => {
       if (err) {
-        console.error("Error creating CSV error file:", err);
+        logger.error({
+          message: `Error creating CSV error file: ${err.message}`,
+        });
       } else {
-        console.log("CSV errors have been regitered in this file: ", logPath);
+        logger.info({
+          message: `CSV errors have been registered in this file: ${logPath}`,
+        });
       }
     });
     return null;
   }
-  console.log("File processing and validation completed.");
+  logger.info({
+    message: "File processing and validation completed.",
+  });
   return dataParsed;
 };
 
 const uploadCsvFileToServer = async (file) => {
   await fs.promises
     .mkdir(directoryUploads, { recursive: true })
+    .catch(() => {});
+  await fs.promises
+    .mkdir(directoryLogRequest, { recursive: true })
     .catch(() => {});
   await fs.promises.mkdir(directoryLogs, { recursive: true }).catch(() => {});
 
@@ -351,7 +366,7 @@ const uploadCsvFileToServer = async (file) => {
   return uploadPath;
 };
 
-const saveDataLog = async (data) => {
+const saveDataLog = async (data, logger) => {
   try {
     let errorRequests = [];
     let successRequests = [];
@@ -367,22 +382,18 @@ const saveDataLog = async (data) => {
       });
     });
 
-    console.log(
-      "Total error requests:",
-      errorRequests.length,
-      "Total success requests:",
-      successRequests.length
-    );
+    logger.info({
+      message: `Total error requests: ${errorRequests.length}, Total success requests: ${successRequests.length}`,
+    });
 
-    const currentDate = new Date().toISOString().replace(/[:.]/g, "-");
     if (errorRequests.length > 0) {
       const objectResult = JSON.stringify({ records: errorRequests }, null, 2);
       const logPath = path.join(
-        directoryLogs,
+        directoryLogRequest,
         `error_logs_request_${currentDate}.json`
       );
       await fs.promises.writeFile(logPath, objectResult);
-      console.log("Success log saved at:", logPath);
+      logger.info({ message: `Error log saved at: ${logPath}` });
     }
 
     if (successRequests.length > 0) {
@@ -392,36 +403,61 @@ const saveDataLog = async (data) => {
         2
       );
       const logPath = path.join(
-        directoryLogs,
+        directoryLogRequest,
         `success_logs_request_${currentDate}.json`
       );
       await fs.promises.writeFile(logPath, objectResult);
-      console.log("Success log saved at:", logPath);
+      logger.info({
+        message: `Success log saved at: ${logPath}`,
+      });
     }
   } catch (error) {
-    console.error("Error saving data logs:", error);
+    logger.error({
+      message: `Error saving data logs: ${error.message}`,
+    });
   }
 };
 
 const userMigrationArcIdentityController = async (req) => {
+  console.log("User migration process started.");
+  const logger = createLogger({
+    format: format.combine(format.timestamp(), format.json(), format.simple()),
+    transports: [
+      new transports.File({ filename: directoryLogs + `/${currentDate}.log` }),
+    ],
+  });
+  logger.info({ message: "User migration process started.", type: "info" });
   const file = await uploadCsvFileToServer(req.files.files);
-  const dataParsed = await processFile(file, req.body.headings);
-  console.log("Data parsed length:", dataParsed ? dataParsed.length : 0);
+  const dataParsed = await processFile(file, req.body.headings, logger);
+  logger.info({
+    message: "Data parsed length: " + (dataParsed ? dataParsed.length : 0),
+  });
   if (dataParsed === null) {
+    logger.error({
+      message: "File processing failed due to validation errors.",
+    });
     console.log("File processing failed due to validation errors.");
-    return [];
+    return;
   }
 
   let responseData = [];
   try {
-    responseData = await processToSendDataToArc(dataParsed);
+    responseData = await processToSendDataToArc(dataParsed, logger);
+    console.log("Data has been sent to Arc for processing.");
+    logger.info({
+      message: "Data has been sent to Arc for processing.",
+    });
   } catch (error) {
-    console.error("Error during user migration process:", error);
+    logger.error({
+      message: `Error during user migration process: ${error.message}`,
+    });
+    console.log(`Error during user migration process: ${error.message}`);
+    return;
   }
-
-  console.log("User migration process completed.", responseData.length);
-  await saveDataLog(responseData).catch(() => {});
-  console.log("Data logs saved.");
+  logger.info({ message: "User migration process completed." });
+  await saveDataLog(responseData, logger).catch(() => {});
+  logger.info({ message: "Data logs have been saved." });
+  console.log("User migration process completed.");
 };
 
 export default userMigrationArcIdentityController;

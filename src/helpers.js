@@ -21,28 +21,28 @@ export const fotmatJsonResult = (data) => {
     dataResult.identities = [
       {
         userName: data.userName,
-        credentials: data.credentials || "",
+        credentials: data.credentials,
         grantType: data.grantType,
-        lastLoginDate: data.lastLoginDate || "",
+        lastLoginDate: data.lastLoginDate,
       },
     ];
     dataResult.identities[0] = removeEmptyData(dataResult.identities[0]);
   }
   if (data.email) {
     dataResult.profile = {
-      firstName: data.firstName || "",
-      lastName: data.lastName || "",
-      secondLastName: data.secondLastName || "",
-      displayName: data.displayName || "",
-      gender: data.gender || "",
+      firstName: data.firstName,
+      lastName: data.lastName,
+      secondLastName: data.secondLastName,
+      displayName: data.displayName,
+      gender: data.gender,
       email: data.email,
-      birthYear: data.birthYear || "",
-      birthMonth: data.birthMonth || "",
-      birthDay: data.birthDay || "",
-      legacyId: data.legacyId || "",
-      deletionRule: data.deletionRule || "",
-      emailVerified: data.emailVerified !== undefined ? data.emailVerified : "",
-      createdOn: data.createdOn || "",
+      birthYear: data.birthYear,
+      birthMonth: data.birthMonth,
+      birthDay: data.birthDay,
+      legacyId: data.legacyId,
+      deletionRule: data.deletionRule,
+      emailVerified: data.emailVerified,
+      createdOn: data.createdOn,
     };
     dataResult.profile = removeEmptyData(dataResult.profile);
   } else {
@@ -65,11 +65,11 @@ export const fotmatJsonResult = (data) => {
       {
         type: data.typeAddresses,
         line1: data.line1,
-        line2: data.line2 || "",
+        line2: data.line2,
         locality: data.locality,
-        region: data.region || "",
-        postal: data.postal || "",
-        country: data.country || "",
+        region: data.region,
+        postal: data.postal,
+        country: data.country,
       },
     ];
     dataResult.profile.addresses[0] = removeEmptyData(
