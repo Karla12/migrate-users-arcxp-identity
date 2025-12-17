@@ -30,7 +30,12 @@ export const FULL_HEADERS = [
   "createdOn",
 ];
 
-export const DEFAULT_HEADERS = ["userName", "grantType", "email"];
+export const DEFAULT_HEADERS = [
+  "userName",
+  "grantType",
+  "email",
+  "emailVerified",
+];
 
 export const COMPLETE_NAME_PATTERN = /[a-zA-Z-_0-9]+/;
 export const DISPLAY_NAME_PATTERN = /^[\p{L}'0-9]*[ \p{L}'-_0-9]*[\p{L}0-9]$/;

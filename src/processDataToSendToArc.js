@@ -36,15 +36,14 @@ const requestToArcXP = async (data, logger) => {
             message: `Exceeded maximum retries (${maxRetries}) for 429 errors.`,
           });
         }
-        await sleep(retryDelay); // Wait 10 seconds for 429 errors
+        await sleep(retryDelay);
         continue;
       }
       const records = response?.data?.records ?? [];
       logger.info({
         message: `POST request to Arc XP successful. Records processed: ${records.length}`,
       });
-      // Wait 0.9375 seconds before allowing the next request
-      await sleep(938);
+      await sleep(process.env.DELAY_BETWEEN_REQUESTS_MS || 937.5);
       return { ok: true, data: records };
     }
   } catch (error) {

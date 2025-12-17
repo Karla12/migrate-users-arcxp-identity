@@ -3,6 +3,8 @@ import csv from "csv-parser";
 import validator from "validator";
 import path from "path";
 import { createLogger, transports, format } from "winston";
+import dotenv from "dotenv";
+dotenv.config({ path: process.cwd() + "/.env" });
 import {
   FULL_HEADERS,
   DEFAULT_HEADERS,
@@ -14,10 +16,12 @@ import { fotmatJsonResult, mapHeaders } from "./helpers.js";
 import { processToSendDataToArc } from "./processDataToSendToArc.js";
 
 const currentDate = new Date().toISOString().replace(/[:.]/g, "-");
-
-const directoryUploads = process.cwd() + "/csvs";
-const directoryLogRequest = process.cwd() + "/logs_requests";
-const directoryLogs = process.cwd() + "/logs";
+console.log("Current date for logs: ", process.env.CSV_UPLOAD_DIR);
+const directoryUploads =
+  process.cwd() + (process.env.CSV_UPLOAD_DIR || "/csv_uploads");
+const directoryLogRequest =
+  process.cwd() + (process.env.LOG_REQUEST_DIR || "/logs_requests");
+const directoryLogs = process.cwd() + (process.env.LOG_DIR || "/logs");
 
 const errorText = (header, index, valueColumn) => {
   return `Empty value or incorrect value for header "${header}" at row ${
