@@ -1,0 +1,3 @@
+userName,credentials,grantType,lastLoginDate,firstName,lastName,secondLastName,displayName,gender,email,birthYear,birthMonth,birthDay,phone,typeContacts,line1,line2,locality,region,postal,country,typeAddresses,name,value,typeAttributes,legacyId,deletionRule,emailVerified,createdOn
+johndoe,somehash,password,2023-11-01T10:00:00Z,John,Doe,Smith,"John D.",MALE,john.doe@example.com,1985,07,15,555-1234,WORK,123 Main St,Apt 4,Springfield,Illinois,62704,US,HOME,preferred_language,en,String,LEG-12345,0,true,2020-01-01T09:00:00Z
+janedoe,oauth_token,google,2024-05-12T08:30:00Z,Jane,Doe,,Jane D,FEMALE,jane.doe@example.org,1990,12,02,555-6789,PRIMARY,456 Elm St,,Metropolis,NY,10001,US,WORK,subscription_level,premium,String,LEG-54321,1,false,2021-06-15T12:00:00Z

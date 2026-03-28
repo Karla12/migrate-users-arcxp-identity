@@ -1,0 +1,3 @@
+userName,grantType,email,emailVerified
+johndoe,password,johndoe@gmail.com,true
+janedoe,google,janedoe@gmail.com,true
